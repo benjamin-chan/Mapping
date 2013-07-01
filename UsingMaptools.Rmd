@@ -1,0 +1,72 @@
+Using `maptools`
+========================================================
+
+Download TIGER 2012 shapefiles [here](http://www.census.gov/geo/maps-data/data/tiger-line.html). Store the shapefiles on the CHSE server in the `DataRepository/Shapefiles/TIGER 2012` folder. 
+
+Resources:
+* [Combining Spatial Data](http://cran.r-project.org/web/packages/maptools/vignettes/combine_maptools.pdf)
+* [Maps in R -- Examples](http://geography.uoregon.edu/geogr/topics/maps.htm)
+* [adding variable to shapefile](http://r-sig-geo.2731867.n2.nabble.com/adding-variable-to-shapefile-td6193408.html)
+
+Load `maptools`
+```{r LoadLibraries}
+require(maptools)
+require(RColorBrewer)
+library(classInt)
+```
+
+Read in the TIGER Zip Code Tabulation Area (ZCTA) shapefile. I'm not sure why the `proj4string` parameter works, but it fixes the projection.
+```{r ReadShapefile}
+dir <- "E:/DataRepository/Shapefiles/TIGER 2012/tl_2012_us_zcta510"
+file <- paste(dir, "tl_2012_us_zcta510.shp", sep="/")
+# mapCountyUS <- readShapeLines(shpfile, proj4string=CRS("+proj=longlat"))
+shpUS <- readShapePoly(file, proj4string=CRS("+proj=longlat"))
+summary(shpUS)
+```
+
+Since ZCTAs do not exactly correspond to geographical units, we need to read in a ZCTA relationship file that links ZCTAs to counties. 
+```{r ReadZCTARelFile}
+dir <- "E:/DataRepository/Shapefiles/TIGER 2012/ZCTA Relationship Files"
+file <- paste(dir, "zcta_county_rel_10.txt", sep="/")
+zctarel <- read.table(file, header=TRUE, sep=",")
+head(zctarel)
+```
+Then subset the ZCTA relationship file for Oregon (state = 41). Also, create a character vector of Oregon ZCTAs and add it to the ZCTA relationship data frame.
+```{r SubsetZCTARelFile}
+zctarelOR <- subset(zctarel, STATE == 41)
+ZCTA5CHR <- sprintf("%05d", zctarelOR$ZCTA5)
+zctarelOR <- data.frame(ZCTA5CHR, zctarelOR)
+head(zctarelOR)
+```
+
+Subset the TIGER shapefile to include only the Oregon ZCTAs.
+```{r SubsetShapefile}
+shpOR <- subset(shpUS, ZCTA5CE10 %in% zctarelOR$ZCTA5)
+summary(shpOR)
+```
+
+Merge the attributes from the ZCTA relationship file to the Oregon shapefile. Some ZCTAs span across counties. So we'll exclude the attributes that are county-specific; e.g., 2010 Population of the 2010 County (`COPOP`) and Total Area of the 2010 County (`COAREA`). The record file layout can be found [here](http://www.census.gov/geo/maps-data/data/zcta_rel_layout.html).
+```{r MergeAttributes}
+d1 <- shpOR@data
+d2 <- subset(zctarelOR, select=c(ZCTA5CHR, ZCTA5, STATE, ZPOP, ZHU, ZAREA, ZAREALAND))
+d <- merge(d1, d2, by.x="ZCTA5CE10", by.y="ZCTA5")
+shpOR@data <- d
+summary(shpOR)
+```
+
+Plot the Oregon ZCTAs.
+```{r MapOR}
+plot(shpOR)
+```
+There's some weirdness with 1 Washington ZCTA and some California ZCTAs being plotted. **Will need to resolve**
+
+Color code by ZCTA population size.
+```{r}
+x <- shpOR@data$ZPOP
+ncolors <- 7
+pal <- brewer.pal(ncolors, "Blues")
+# pal <- pal[ncolors:1]  # reverse the palette
+class <- classIntervals(x, ncolors, style="equal")
+colcode <- findColours(class, pal)
+plot(shpOR, col=colcode)
+```
