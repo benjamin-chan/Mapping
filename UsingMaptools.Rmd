@@ -1,7 +1,7 @@
-Using `maptools`
-========================================================
+Using `maptools` - Proof of concept
+===================================
 
-Download TIGER 2012 shapefiles [here](http://www.census.gov/geo/maps-data/data/tiger-line.html). Store the shapefiles on the CHSE server in the `DataRepository/Shapefiles/TIGER 2012` folder. 
+Download TIGER 2012 shapefiles [here](http://www.census.gov/geo/maps-data/data/tiger-line.html). Store the shapefiles on the CHSE server in the "`DataRepository/Shapefiles/TIGER 2012`" folder. 
 
 Resources:
 * [Combining Spatial Data](http://cran.r-project.org/web/packages/maptools/vignettes/combine_maptools.pdf)
@@ -10,32 +10,32 @@ Resources:
 
 Load `maptools`
 ```{r LoadLibraries}
-require(maptools)
-require(RColorBrewer)
-library(classInt)
+require(maptools, quietly=TRUE)
+require(RColorBrewer, quietly=TRUE)
+library(classInt, quietly=TRUE)
 ```
 
-Read in the TIGER Zip Code Tabulation Area (ZCTA) shapefile. I'm not sure why the `proj4string` parameter works, but it fixes the projection.
+Read in the TIGER Zip Code Tabulation Area (ZCTA) shapefile. I'm not sure how the `proj4string` parameter works, but it fixes the projection.
 ```{r ReadShapefile}
 dir <- "E:/DataRepository/Shapefiles/TIGER 2012/tl_2012_us_zcta510"
 file <- paste(dir, "tl_2012_us_zcta510.shp", sep="/")
-# mapCountyUS <- readShapeLines(shpfile, proj4string=CRS("+proj=longlat"))
 shpUS <- readShapePoly(file, proj4string=CRS("+proj=longlat"))
 summary(shpUS)
 ```
 
-Since ZCTAs do not exactly correspond to geographical units, we need to read in a ZCTA relationship file that links ZCTAs to counties. 
+Since ZCTAs do not exactly correspond to geographical units, we need to read in a ZCTA relationship file that links ZCTAs to states and counties. 
 ```{r ReadZCTARelFile}
 dir <- "E:/DataRepository/Shapefiles/TIGER 2012/ZCTA Relationship Files"
 file <- paste(dir, "zcta_county_rel_10.txt", sep="/")
 zctarel <- read.table(file, header=TRUE, sep=",")
 head(zctarel)
 ```
-Then subset the ZCTA relationship file for Oregon (state = 41). Also, create a character vector of Oregon ZCTAs and add it to the ZCTA relationship data frame.
+
+Create a character vector of ZCTAs and add it to the ZCTA relationship data frame. Then subset the ZCTA relationship file for Oregon ('STATE == 41' and ZCTA beginning with "97").
 ```{r SubsetZCTARelFile}
-zctarelOR <- subset(zctarel, STATE == 41)
-ZCTA5CHR <- sprintf("%05d", zctarelOR$ZCTA5)
-zctarelOR <- data.frame(ZCTA5CHR, zctarelOR)
+ZCTA5CHR <- sprintf("%05d", zctarel$ZCTA5)
+zctarel <- data.frame(ZCTA5CHR, zctarel)
+zctarelOR <- zctarel[zctarel$STATE == 41 & grepl("^97", zctarel$ZCTA5CHR),]
 head(zctarelOR)
 ```
 
@@ -56,17 +56,42 @@ summary(shpOR)
 
 Plot the Oregon ZCTAs.
 ```{r MapOR}
-plot(shpOR)
+plot(shpOR, border="lightgrey")
 ```
-There's some weirdness with 1 Washington ZCTA and some California ZCTAs being plotted. **Will need to resolve**
 
-Color code by ZCTA population size.
-```{r}
-x <- shpOR@data$ZPOP
-ncolors <- 7
-pal <- brewer.pal(ncolors, "Blues")
-# pal <- pal[ncolors:1]  # reverse the palette
-class <- classIntervals(x, ncolors, style="equal")
-colcode <- findColours(class, pal)
-plot(shpOR, col=colcode)
+Read in the CCO zip code data compiled by Peter Graven.
+```{r ReadCCOData}
+lookupCCO <- read.csv("//ohsum01.ohsu.edu/OHSU/OHSU Shared/Restricted/OCHSER/PROJECTS/EX13-04_Oregon_CO&CCOs/CCO Maps/Data/Zip CCO_edit.csv")
+lookupCCO <- lookupCCO[order(lookupCCO$Zip_Code),]
+head(lookupCCO)
+```
+
+Get the number of CCOs and create a [Color Brewer](http://colorbrewer2.org/) palette. Since the number of CCOs exceeds the maximum number of values possible in a palette, we'll need to create 3 separate palettes (red, green, blue) and concatenate them. Next, assign each CCO to a palette value.
+```{r CreatePalette}
+nCCO <- length(table(lookupCCO$CCO))
+n <- ceiling(nCCO / 3)
+palR <- brewer.pal(n, "Reds")
+palG <- brewer.pal(n, "Greens")
+palB <- brewer.pal(n, "Blues")
+pal <- c(palR, palG[2:n], palB[2:n])
+CCO <- names(table(lookupCCO$CCO))
+pal <- data.frame(CCO, pal)
+```
+
+Define function to plot each CCO as a layer.
+```{r DefineLayeringFunction}
+layerCCO <- function(x) {
+  l <- lookupCCO[lookupCCO$CCO == x, "Zip_Code"]
+  c <- pal[pal$CCO == x, "pal"]
+  shpx <- subset(shpOR, ZCTA5CE10 %in% l)
+  plot(shpx, add=TRUE, col=c, border="lightgrey")
+}
+```
+
+Run the layering function, iterating through all the CCOs. The function isn't smart enough to deal with ZCTAs that have multiple CCOs assigned.
+```{r MapOregonCCO, fig.keep='last'}
+plot(shpOR, border="lightgrey")
+for (i in 4:6) {
+  layerCCO(CCO[i])
+}
 ```

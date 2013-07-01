@@ -1,7 +1,7 @@
-Using `maptools`
-========================================================
+Using `maptools` - Proof of concept
+===================================
 
-Download TIGER 2012 shapefiles [here](http://www.census.gov/geo/maps-data/data/tiger-line.html). Store the shapefiles on the CHSE server in the `DataRepository/Shapefiles/TIGER 2012` folder. 
+Download TIGER 2012 shapefiles [here](http://www.census.gov/geo/maps-data/data/tiger-line.html). Store the shapefiles on the CHSE server in the "`DataRepository/Shapefiles/TIGER 2012`" folder. 
 
 Resources:
 * [Combining Spatial Data](http://cran.r-project.org/web/packages/maptools/vignettes/combine_maptools.pdf)
@@ -11,11 +11,7 @@ Resources:
 Load `maptools`
 
 ```r
-require(maptools)
-```
-
-```
-## Loading required package: maptools
+require(maptools, quietly = TRUE)
 ```
 
 ```
@@ -23,23 +19,7 @@ require(maptools)
 ```
 
 ```
-## Loading required package: foreign
-```
-
-```
-## Loading required package: sp
-```
-
-```
 ## Warning: package 'sp' was built under R version 3.0.1
-```
-
-```
-## Loading required package: grid
-```
-
-```
-## Loading required package: lattice
 ```
 
 ```
@@ -50,15 +30,8 @@ require(maptools)
 ```
 
 ```r
-require(RColorBrewer)
-```
-
-```
-## Loading required package: RColorBrewer
-```
-
-```r
-library(classInt)
+require(RColorBrewer, quietly = TRUE)
+library(classInt, quietly = TRUE)
 ```
 
 ```
@@ -66,24 +39,15 @@ library(classInt)
 ```
 
 ```
-## Loading required package: class
-```
-
-```
-## Loading required package: e1071
-```
-
-```
 ## Warning: package 'e1071' was built under R version 3.0.1
 ```
 
 
-Read in the TIGER Zip Code Tabulation Area (ZCTA) shapefile. I'm not sure why the `proj4string` parameter works, but it fixes the projection.
+Read in the TIGER Zip Code Tabulation Area (ZCTA) shapefile. I'm not sure how the `proj4string` parameter works, but it fixes the projection.
 
 ```r
 dir <- "E:/DataRepository/Shapefiles/TIGER 2012/tl_2012_us_zcta510"
 file <- paste(dir, "tl_2012_us_zcta510.shp", sep = "/")
-# mapCountyUS <- readShapeLines(shpfile, proj4string=CRS('+proj=longlat'))
 shpUS <- readShapePoly(file, proj4string = CRS("+proj=longlat"))
 summary(shpUS)
 ```
@@ -124,7 +88,7 @@ summary(shpUS)
 ```
 
 
-Since ZCTAs do not exactly correspond to geographical units, we need to read in a ZCTA relationship file that links ZCTAs to counties. 
+Since ZCTAs do not exactly correspond to geographical units, we need to read in a ZCTA relationship file that links ZCTAs to states and counties. 
 
 ```r
 dir <- "E:/DataRepository/Shapefiles/TIGER 2012/ZCTA Relationship Files"
@@ -157,44 +121,45 @@ head(zctarel)
 ## 6     6.10         6.10     0.35    0.35      7.20          7.20
 ```
 
-Then subset the ZCTA relationship file for Oregon (state = 41). Also, create a character vector of Oregon ZCTAs and add it to the ZCTA relationship data frame.
+
+Create a character vector of ZCTAs and add it to the ZCTA relationship data frame. Then subset the ZCTA relationship file for Oregon ('STATE == 41' and ZCTA beginning with "97").
 
 ```r
-zctarelOR <- subset(zctarel, STATE == 41)
-ZCTA5CHR <- sprintf("%05d", zctarelOR$ZCTA5)
-zctarelOR <- data.frame(ZCTA5CHR, zctarelOR)
+ZCTA5CHR <- sprintf("%05d", zctarel$ZCTA5)
+zctarel <- data.frame(ZCTA5CHR, zctarel)
+zctarelOR <- zctarel[zctarel$STATE == 41 & grepl("^97", zctarel$ZCTA5CHR), ]
 head(zctarelOR)
 ```
 
 ```
 ##       ZCTA5CHR ZCTA5 STATE COUNTY GEOID POPPT  HUPT    AREAPT AREALANDPT
-## 40865    89421 89421    41     45 41045    93    57 1.430e+09  1.430e+09
-## 42959    97001 97001    41     65 41065   229    76 7.710e+08  7.703e+08
-## 42960    97002 97002    41      5 41005  1334   516 3.377e+07  3.291e+07
-## 42961    97002 97002    41     47 41047  4289  1714 7.847e+07  7.784e+07
-## 42962    97004 97004    41      5 41005  4388  1689 1.135e+08  1.134e+08
-## 42963    97005 97005    41     67 41067 24906 10955 1.375e+07  1.375e+07
+## 42959    97001 97001    41     65 41065   229    76 770979271  770309402
+## 42960    97002 97002    41      5 41005  1334   516  33771413   32912466
+## 42961    97002 97002    41     47 41047  4289  1714  78470445   77842217
+## 42962    97004 97004    41      5 41005  4388  1689 113470761  113398767
+## 42963    97005 97005    41     67 41067 24906 10955  13753498   13753498
+## 42964    97006 97006    41     67 41067 63036 25287  30429045   30429045
 ##        ZPOP   ZHU     ZAREA ZAREALAND  COPOP   COHU    COAREA COAREALAND
-## 40865   634   306 2.165e+09 2.165e+09  31313  11692 2.572e+10  2.561e+10
-## 42959   229    76 7.710e+08 7.703e+08  25213  11487 6.204e+09  6.168e+09
-## 42960  5623  2230 1.122e+08 1.108e+08 375992 156945 4.876e+09  4.844e+09
-## 42961  5623  2230 1.122e+08 1.108e+08 315335 120948 3.089e+09  3.062e+09
-## 42962  4388  1689 1.135e+08 1.134e+08 375992 156945 4.876e+09  4.844e+09
-## 42963 24906 10955 1.375e+07 1.375e+07 529710 212450 1.881e+09  1.876e+09
+## 42959   229    76 770979271 770309402  25213  11487 6.204e+09  6.168e+09
+## 42960  5623  2230 112241858 110754683 375992 156945 4.876e+09  4.844e+09
+## 42961  5623  2230 112241858 110754683 315335 120948 3.089e+09  3.062e+09
+## 42962  4388  1689 113470761 113398767 375992 156945 4.876e+09  4.844e+09
+## 42963 24906 10955  13753498  13753498 529710 212450 1.881e+09  1.876e+09
+## 42964 63036 25287  30429045  30429045 529710 212450 1.881e+09  1.876e+09
 ##       ZPOPPCT ZHUPCT ZAREAPCT ZAREALANDPCT COPOPPCT COHUPCT COAREAPCT
-## 40865   14.67  18.63    66.07        66.07     0.30    0.49      5.56
 ## 42959  100.00 100.00   100.00       100.00     0.91    0.66     12.43
 ## 42960   23.72  23.14    30.09        29.72     0.35    0.33      0.69
 ## 42961   76.28  76.86    69.91        70.28     1.36    1.42      2.54
 ## 42962  100.00 100.00   100.00       100.00     1.17    1.08      2.33
 ## 42963  100.00 100.00   100.00       100.00     4.70    5.16      0.73
+## 42964  100.00 100.00   100.00       100.00    11.90   11.90      1.62
 ##       COAREALANDPCT
-## 40865          5.58
 ## 42959         12.49
 ## 42960          0.68
 ## 42961          2.54
 ## 42962          2.34
 ## 42963          0.73
+## 42964          1.62
 ```
 
 
@@ -210,26 +175,26 @@ summary(shpOR)
 ## Coordinates:
 ##       min     max
 ## x -124.57 -116.46
-## y   41.71   46.29
+## y   41.85   46.24
 ## Is projected: FALSE 
 ## proj4string : [+proj=longlat]
 ## Data attributes:
 ##    ZCTA5CE10      GEOID10    CLASSFP10  MTFCC10    FUNCSTAT10
-##  89421  :  1   89421  :  1   B5:419    G6350:419   S:419     
-##  97001  :  1   97001  :  1                                   
+##  97001  :  1   97001  :  1   B5:417    G6350:417   S:417     
 ##  97002  :  1   97002  :  1                                   
 ##  97004  :  1   97004  :  1                                   
 ##  97005  :  1   97005  :  1                                   
 ##  97006  :  1   97006  :  1                                   
-##  (Other):413   (Other):413                                   
+##  97007  :  1   97007  :  1                                   
+##  (Other):411   (Other):411                                   
 ##     ALAND10            AWATER10              INTPTLAT10 
 ##  Min.   :1.88e+04   Min.   :0.00e+00   +41.9299921:  1  
-##  1st Qu.:6.10e+07   1st Qu.:5.38e+04   +42.0341396:  1  
-##  Median :1.81e+08   Median :5.50e+05   +42.0364865:  1  
-##  Mean   :3.99e+08   Mean   :5.28e+06   +42.0520986:  1  
-##  3rd Qu.:4.22e+08   3rd Qu.:3.52e+06   +42.0843863:  1  
-##  Max.   :1.34e+10   Max.   :1.98e+08   +42.1189763:  1  
-##                                        (Other)    :413  
+##  1st Qu.:6.10e+07   1st Qu.:5.41e+04   +42.0341396:  1  
+##  Median :1.80e+08   Median :5.58e+05   +42.0364865:  1  
+##  Mean   :3.93e+08   Mean   :5.31e+06   +42.0843863:  1  
+##  3rd Qu.:4.21e+08   3rd Qu.:3.56e+06   +42.1189763:  1  
+##  Max.   :1.34e+10   Max.   :1.98e+08   +42.1230944:  1  
+##                                        (Other)    :411  
 ##         INTPTLON10 
 ##  -116.7369842:  1  
 ##  -116.9184440:  1  
@@ -237,7 +202,7 @@ summary(shpOR)
 ##  -117.0841615:  1  
 ##  -117.1072752:  1  
 ##  -117.1612358:  1  
-##  (Other)     :413
+##  (Other)     :411
 ```
 
 
@@ -257,40 +222,40 @@ summary(shpOR)
 ## Coordinates:
 ##       min     max
 ## x -124.57 -116.46
-## y   41.71   46.29
+## y   41.85   46.24
 ## Is projected: FALSE 
 ## proj4string : [+proj=longlat]
 ## Data attributes:
 ##    ZCTA5CE10      GEOID10    CLASSFP10  MTFCC10    FUNCSTAT10
-##  97035  :  3   97035  :  3   B5:513    G6350:513   S:513     
+##  97035  :  3   97035  :  3   B5:511    G6350:511   S:511     
 ##  97056  :  3   97056  :  3                                   
 ##  97132  :  3   97132  :  3                                   
 ##  97140  :  3   97140  :  3                                   
 ##  97231  :  3   97231  :  3                                   
 ##  97324  :  3   97324  :  3                                   
-##  (Other):495   (Other):495                                   
+##  (Other):493   (Other):493                                   
 ##     ALAND10            AWATER10              INTPTLAT10 
 ##  Min.   :1.88e+04   Min.   :0.00e+00   +44.3650250:  3  
-##  1st Qu.:6.66e+07   1st Qu.:5.81e+04   +44.3762051:  3  
-##  Median :1.84e+08   Median :5.71e+05   +44.4987537:  3  
-##  Mean   :3.99e+08   Mean   :5.14e+06   +45.0771135:  3  
-##  3rd Qu.:4.23e+08   3rd Qu.:3.48e+06   +45.3242190:  3  
+##  1st Qu.:6.56e+07   1st Qu.:5.85e+04   +44.3762051:  3  
+##  Median :1.84e+08   Median :5.79e+05   +44.4987537:  3  
+##  Mean   :3.94e+08   Mean   :5.16e+06   +45.0771135:  3  
+##  3rd Qu.:4.22e+08   3rd Qu.:3.52e+06   +45.3242190:  3  
 ##  Max.   :1.34e+10   Max.   :1.98e+08   +45.3531038:  3  
-##                                        (Other)    :495  
+##                                        (Other)    :493  
 ##         INTPTLON10     ZCTA5CHR       STATE         ZPOP      
 ##  -121.2435868:  3   97035  :  3   Min.   :41   Min.   :    0  
-##  -121.9001215:  3   97056  :  3   1st Qu.:41   1st Qu.:  714  
+##  -121.9001215:  3   97056  :  3   1st Qu.:41   1st Qu.:  722  
 ##  -122.7251706:  3   97132  :  3   Median :41   Median : 2985  
-##  -122.8242089:  3   97140  :  3   Mean   :41   Mean   : 9775  
-##  -122.8659138:  3   97231  :  3   3rd Qu.:41   3rd Qu.:14096  
+##  -122.8242089:  3   97140  :  3   Mean   :41   Mean   : 9732  
+##  -122.8659138:  3   97231  :  3   3rd Qu.:41   3rd Qu.:14074  
 ##  -122.9694079:  3   97324  :  3   Max.   :41   Max.   :66954  
-##  (Other)     :495   (Other):495                               
+##  (Other)     :493   (Other):493                               
 ##       ZHU            ZAREA            ZAREALAND       
 ##  Min.   :    0   Min.   :1.88e+04   Min.   :1.88e+04  
-##  1st Qu.:  407   1st Qu.:7.11e+07   1st Qu.:6.66e+07  
-##  Median : 1354   Median :1.96e+08   Median :1.84e+08  
-##  Mean   : 4262   Mean   :4.04e+08   Mean   :3.99e+08  
-##  3rd Qu.: 6495   3rd Qu.:4.26e+08   3rd Qu.:4.23e+08  
+##  1st Qu.:  413   1st Qu.:7.02e+07   1st Qu.:6.56e+07  
+##  Median : 1354   Median :1.92e+08   Median :1.84e+08  
+##  Mean   : 4247   Mean   :4.00e+08   Mean   :3.94e+08  
+##  3rd Qu.: 6494   3rd Qu.:4.24e+08   3rd Qu.:4.22e+08  
 ##  Max.   :27682   Max.   :1.35e+10   Max.   :1.34e+10  
 ## 
 ```
@@ -299,24 +264,69 @@ summary(shpOR)
 Plot the Oregon ZCTAs.
 
 ```r
-plot(shpOR)
+plot(shpOR, border = "lightgrey")
 ```
 
 ![plot of chunk MapOR](figure/MapOR.png) 
 
-There's some weirdness with 1 Washington ZCTA and some California ZCTAs being plotted. **Will need to resolve**
 
-Color code by ZCTA population size.
+Read in the CCO zip code data compiled by Peter Graven.
 
 ```r
-x <- shpOR@data$ZPOP
-ncolors <- 7
-pal <- brewer.pal(ncolors, "Blues")
-# pal <- pal[ncolors:1] # reverse the palette
-class <- classIntervals(x, ncolors, style = "equal")
-colcode <- findColours(class, pal)
-plot(shpOR, col = colcode)
+lookupCCO <- read.csv("//ohsum01.ohsu.edu/OHSU/OHSU Shared/Restricted/OCHSER/PROJECTS/EX13-04_Oregon_CO&CCOs/CCO Maps/Data/Zip CCO_edit.csv")
+lookupCCO <- lookupCCO[order(lookupCCO$Zip_Code), ]
+head(lookupCCO)
 ```
 
-![plot of chunk unnamed-chunk-1](figure/unnamed-chunk-1.png) 
+```
+##     Zip_Code                             CCO
+## 635       68                        Trillium
+## 634       69                        Trillium
+## 636       70          Health Share of Oregon
+## 637       70                      FamilyCare
+## 620       77                  Intercommunity
+## 490    97001 PacificSource CCO, Gorge Region
+```
+
+
+Get the number of CCOs and create a [Color Brewer](http://colorbrewer2.org/) palette. Since the number of CCOs exceeds the maximum number of values possible in a palette, we'll need to create 3 separate palettes (red, green, blue) and concatenate them. Next, assign each CCO to a palette value.
+
+```r
+nCCO <- length(table(lookupCCO$CCO))
+n <- ceiling(nCCO/3)
+palR <- brewer.pal(n, "Reds")
+palG <- brewer.pal(n, "Greens")
+palB <- brewer.pal(n, "Blues")
+pal <- c(palR, palG[2:n], palB[2:n])
+CCO <- names(table(lookupCCO$CCO))
+pal <- data.frame(CCO, pal)
+```
+
+
+Define function to plot each CCO as a layer.
+
+```r
+layerCCO <- function(x) {
+    l <- lookupCCO[lookupCCO$CCO == x, "Zip_Code"]
+    c <- pal[pal$CCO == x, "pal"]
+    shpx <- subset(shpOR, ZCTA5CE10 %in% l)
+    plot(shpx, add = TRUE, col = c, border = "lightgrey")
+}
+```
+
+
+Run the layering function, iterating through all the CCOs. The function isn't smart enough to deal with ZCTAs that have multiple CCOs assigned.
+
+```r
+plot(shpOR, border = "lightgrey")
+for (i in 1:nCCO) {
+    layerCCO(CCO[i])
+}
+```
+
+```
+## Error: cannot get a slot ("Polygons") from an object of type "NULL"
+```
+
+![plot of chunk MapOregonCCO](figure/MapOregonCCO.png) 
 
