@@ -43,48 +43,71 @@ library(classInt, quietly = TRUE)
 ```
 
 
-Read in the TIGER Zip Code Tabulation Area (ZCTA) shapefile. I'm not sure how the `proj4string` parameter works, but it fixes the projection.
+Read in the TIGER 2012 shapefiles:
+* Zip Code Tabulation Area (ZCTA) shapefile
+* County shapefile
+I'm not sure how the `proj4string` parameter works, but it fixes the projection.
 
 ```r
 dir <- "E:/DataRepository/Shapefiles/TIGER 2012/tl_2012_us_zcta510"
 file <- paste(dir, "tl_2012_us_zcta510.shp", sep = "/")
-shpUS <- readShapePoly(file, proj4string = CRS("+proj=longlat"))
-summary(shpUS)
+shpZCTALines <- readShapeLines(file, proj4string = CRS("+proj=longlat"))
+shpZCTAPoly <- readShapePoly(file, proj4string = CRS("+proj=longlat"))
+dir <- "E:/DataRepository/Shapefiles/TIGER 2012/tl_2012_us_county"
+file <- paste(dir, "tl_2012_us_county.shp", sep = "/")
+shpCountyLines <- readShapeLines(file, proj4string = CRS("+proj=longlat"))
+# shpCountyPoly <- readShapePoly(file, proj4string=CRS('+proj=longlat'))
+```
+
+
+Keep only counties in Oregon (`STATE == 41`). Oregon ZCTAs will be extracted following this.
+
+```r
+shpCountyLines <- subset(shpCountyLines, STATEFP == 41)
+summary(shpCountyLines)
 ```
 
 ```
-## Object of class SpatialPolygonsDataFrame
+## Object of class SpatialLinesDataFrame
 ## Coordinates:
 ##       min    max
-## x -176.68 145.83
-## y  -14.37  71.34
+## x -124.70 -116.5
+## y   41.99   46.3
 ## Is projected: FALSE 
 ## proj4string : [+proj=longlat]
 ## Data attributes:
-##    ZCTA5CE10        GEOID10      CLASSFP10   MTFCC10      FUNCSTAT10
-##  00601  :    1   00601  :    1   B5:33144   G6350:33144   S:33144   
-##  00602  :    1   00602  :    1                                      
-##  00603  :    1   00603  :    1                                      
-##  00606  :    1   00606  :    1                                      
-##  00610  :    1   00610  :    1                                      
-##  00612  :    1   00612  :    1                                      
-##  (Other):33138   (Other):33138                                      
-##     ALAND10            AWATER10              INTPTLAT10   
-##  Min.   :5.09e+03   Min.   :0.00e+00   +37.3767764:    2  
-##  1st Qu.:2.34e+07   1st Qu.:5.71e+04   +39.0662903:    2  
-##  Median :9.28e+07   Median :5.77e+05   +40.9085841:    2  
-##  Mean   :2.24e+08   Mean   :5.11e+06   -14.3193757:    1  
-##  3rd Qu.:2.29e+08   3rd Qu.:2.76e+06   +13.2603724:    1  
-##  Max.   :3.48e+10   Max.   :2.48e+09   +13.2949195:    1  
-##                                        (Other)    :33135  
-##         INTPTLON10   
-##  -064.6829328:    1  
-##  -064.6865698:    1  
-##  -064.7365331:    1  
-##  -064.7459318:    1  
-##  -064.7500995:    1  
-##  -064.7707382:    1  
-##  (Other)     :33138
+##     STATEFP      COUNTYFP      COUNTYNS      GEOID           NAME   
+##  41     :36   001    : 1   01135845: 1   41001  : 1   Baker    : 1  
+##  01     : 0   003    : 1   01135846: 1   41003  : 1   Benton   : 1  
+##  02     : 0   005    : 1   01135847: 1   41005  : 1   Clackamas: 1  
+##  04     : 0   007    : 1   01135848: 1   41007  : 1   Clatsop  : 1  
+##  05     : 0   009    : 1   01135849: 1   41009  : 1   Columbia : 1  
+##  06     : 0   011    : 1   01135850: 1   41011  : 1   Coos     : 1  
+##  (Other): 0   (Other):30   (Other) :30   (Other):30   (Other)  :30  
+##              NAMELSAD       LSAD    CLASSFP   MTFCC        CSAFP   
+##  Baker County    : 1   06     :36   C7: 0   G4020:36   102    : 2  
+##  Benton County   : 1   00     : 0   H1:36              140    : 2  
+##  Clackamas County: 1   03     : 0   H4: 0              104    : 0  
+##  Clatsop County  : 1   04     : 0   H5: 0              112    : 0  
+##  Columbia County : 1   05     : 0   H6: 0              118    : 0  
+##  Coos County     : 1   07     : 0                      (Other): 0  
+##  (Other)         :30   (Other): 0                      NA's   :32  
+##      CBSAFP      METDIVFP  FUNCSTAT     ALAND              AWATER        
+##  38900  : 5   13644  : 0   A:36     Min.   :1.12e+09   Min.   :1.24e+06  
+##  37820  : 2   14484  : 0   B: 0     1st Qu.:2.44e+09   1st Qu.:1.81e+07  
+##  41420  : 2   15764  : 0   C: 0     Median :4.73e+09   Median :4.52e+07  
+##  10540  : 1   15804  : 0   F: 0     Mean   :6.91e+09   Mean   :1.72e+08  
+##  11820  : 1   16974  : 0   G: 0     3rd Qu.:8.00e+09   3rd Qu.:2.44e+08  
+##  (Other):14   (Other): 0   N: 0     Max.   :2.62e+10   Max.   :9.35e+08  
+##  NA's   :11   NA's   :36   S: 0                                          
+##         INTPTLAT          INTPTLON 
+##  +42.3853736: 1   -117.1855796: 1  
+##  +42.4117820: 1   -117.6039637: 1  
+##  +42.4666711: 1   -117.6919334: 1  
+##  +42.6837613: 1   -117.9991356: 1  
+##  +42.7884009: 1   -118.7338795: 1  
+##  +43.0643552: 1   -118.9859493: 1  
+##  (Other)    :30   (Other)     :30
 ```
 
 
@@ -166,8 +189,48 @@ head(zctarelOR)
 Subset the TIGER shapefile to include only the Oregon ZCTAs.
 
 ```r
-shpOR <- subset(shpUS, ZCTA5CE10 %in% zctarelOR$ZCTA5)
-summary(shpOR)
+shpZCTALines <- subset(shpZCTALines, ZCTA5CE10 %in% zctarelOR$ZCTA5)
+summary(shpZCTALines)
+```
+
+```
+## Object of class SpatialLinesDataFrame
+## Coordinates:
+##       min     max
+## x -124.57 -116.46
+## y   41.85   46.24
+## Is projected: FALSE 
+## proj4string : [+proj=longlat]
+## Data attributes:
+##    ZCTA5CE10      GEOID10    CLASSFP10  MTFCC10    FUNCSTAT10
+##  97001  :  1   97001  :  1   B5:417    G6350:417   S:417     
+##  97002  :  1   97002  :  1                                   
+##  97004  :  1   97004  :  1                                   
+##  97005  :  1   97005  :  1                                   
+##  97006  :  1   97006  :  1                                   
+##  97007  :  1   97007  :  1                                   
+##  (Other):411   (Other):411                                   
+##     ALAND10            AWATER10              INTPTLAT10 
+##  Min.   :1.88e+04   Min.   :0.00e+00   +41.9299921:  1  
+##  1st Qu.:6.10e+07   1st Qu.:5.41e+04   +42.0341396:  1  
+##  Median :1.80e+08   Median :5.58e+05   +42.0364865:  1  
+##  Mean   :3.93e+08   Mean   :5.31e+06   +42.0843863:  1  
+##  3rd Qu.:4.21e+08   3rd Qu.:3.56e+06   +42.1189763:  1  
+##  Max.   :1.34e+10   Max.   :1.98e+08   +42.1230944:  1  
+##                                        (Other)    :411  
+##         INTPTLON10 
+##  -116.7369842:  1  
+##  -116.9184440:  1  
+##  -117.0395862:  1  
+##  -117.0841615:  1  
+##  -117.1072752:  1  
+##  -117.1612358:  1  
+##  (Other)     :411
+```
+
+```r
+shpZCTAPoly <- subset(shpZCTAPoly, ZCTA5CE10 %in% zctarelOR$ZCTA5)
+summary(shpZCTAPoly)
 ```
 
 ```
@@ -209,62 +272,31 @@ summary(shpOR)
 Merge the attributes from the ZCTA relationship file to the Oregon shapefile. Some ZCTAs span across counties. So we'll exclude the attributes that are county-specific; e.g., 2010 Population of the 2010 County (`COPOP`) and Total Area of the 2010 County (`COAREA`). The record file layout can be found [here](http://www.census.gov/geo/maps-data/data/zcta_rel_layout.html).
 
 ```r
-d1 <- shpOR@data
+d1 <- shpZCTAPoly@data
 d2 <- subset(zctarelOR, select = c(ZCTA5CHR, ZCTA5, STATE, ZPOP, ZHU, ZAREA, 
     ZAREALAND))
 d <- merge(d1, d2, by.x = "ZCTA5CE10", by.y = "ZCTA5")
 shpOR@data <- d
+```
+
+```
+## Error: object 'shpOR' not found
+```
+
+```r
 summary(shpOR)
 ```
 
 ```
-## Object of class SpatialPolygonsDataFrame
-## Coordinates:
-##       min     max
-## x -124.57 -116.46
-## y   41.85   46.24
-## Is projected: FALSE 
-## proj4string : [+proj=longlat]
-## Data attributes:
-##    ZCTA5CE10      GEOID10    CLASSFP10  MTFCC10    FUNCSTAT10
-##  97035  :  3   97035  :  3   B5:511    G6350:511   S:511     
-##  97056  :  3   97056  :  3                                   
-##  97132  :  3   97132  :  3                                   
-##  97140  :  3   97140  :  3                                   
-##  97231  :  3   97231  :  3                                   
-##  97324  :  3   97324  :  3                                   
-##  (Other):493   (Other):493                                   
-##     ALAND10            AWATER10              INTPTLAT10 
-##  Min.   :1.88e+04   Min.   :0.00e+00   +44.3650250:  3  
-##  1st Qu.:6.56e+07   1st Qu.:5.85e+04   +44.3762051:  3  
-##  Median :1.84e+08   Median :5.79e+05   +44.4987537:  3  
-##  Mean   :3.94e+08   Mean   :5.16e+06   +45.0771135:  3  
-##  3rd Qu.:4.22e+08   3rd Qu.:3.52e+06   +45.3242190:  3  
-##  Max.   :1.34e+10   Max.   :1.98e+08   +45.3531038:  3  
-##                                        (Other)    :493  
-##         INTPTLON10     ZCTA5CHR       STATE         ZPOP      
-##  -121.2435868:  3   97035  :  3   Min.   :41   Min.   :    0  
-##  -121.9001215:  3   97056  :  3   1st Qu.:41   1st Qu.:  722  
-##  -122.7251706:  3   97132  :  3   Median :41   Median : 2985  
-##  -122.8242089:  3   97140  :  3   Mean   :41   Mean   : 9732  
-##  -122.8659138:  3   97231  :  3   3rd Qu.:41   3rd Qu.:14074  
-##  -122.9694079:  3   97324  :  3   Max.   :41   Max.   :66954  
-##  (Other)     :493   (Other):493                               
-##       ZHU            ZAREA            ZAREALAND       
-##  Min.   :    0   Min.   :1.88e+04   Min.   :1.88e+04  
-##  1st Qu.:  413   1st Qu.:7.02e+07   1st Qu.:6.56e+07  
-##  Median : 1354   Median :1.92e+08   Median :1.84e+08  
-##  Mean   : 4247   Mean   :4.00e+08   Mean   :3.94e+08  
-##  3rd Qu.: 6494   3rd Qu.:4.24e+08   3rd Qu.:4.22e+08  
-##  Max.   :27682   Max.   :1.35e+10   Max.   :1.34e+10  
-## 
+## Error: error in evaluating the argument 'object' in selecting a method for
+## function 'summary': Error: object 'shpOR' not found
 ```
 
 
-Plot the Oregon ZCTAs.
+Plot the Oregon counties.
 
 ```r
-plot(shpOR, border = "lightgrey")
+plot(shpCountyLines, col = "lightgrey")
 ```
 
 ![plot of chunk MapOR](figure/MapOR.png) 
@@ -289,17 +321,43 @@ head(lookupCCO)
 ```
 
 
-Get the number of CCOs and create a [Color Brewer](http://colorbrewer2.org/) palette. Since the number of CCOs exceeds the maximum number of values possible in a palette, we'll need to create 3 separate palettes (red, green, blue) and concatenate them. Next, assign each CCO to a palette value.
+Fix some screwed up values.
+
+```r
+lookupCCO$CCO[lookupCCO$CCO == "Health Share of Oregon"] <- "HealthShare of Oregon"
+lookupCCO$CCO[lookupCCO$CCO == "Intercommunity"] <- "Intercommunity Health Network"
+lookupCCO$CCO[lookupCCO$CCO == "Primary Health of Josephine County"] <- "PrimaryHealth of Josephine County"
+lookupCCO$CCO <- factor(lookupCCO$CCO)
+```
+
+
+Get the number of CCOs and create a [Color Brewer](http://colorbrewer2.org/) palette. Since the number of CCOs exceeds the maximum number of values possible in a palette, we'll need to create 3 separate palettes (red, green, blue) and concatenate them. 
 
 ```r
 nCCO <- length(table(lookupCCO$CCO))
-n <- ceiling(nCCO/3)
+n <- ceiling(nCCO/4)
 palR <- brewer.pal(n, "Reds")
 palG <- brewer.pal(n, "Greens")
 palB <- brewer.pal(n, "Blues")
-pal <- c(palR, palG[2:n], palB[2:n])
+palP <- brewer.pal(n, "Purples")
+pal <- c(palR, palG, palB, palP)
+```
+
+
+Next, assign each CCO to a palette value.
+
+```r
 CCO <- names(table(lookupCCO$CCO))
 pal <- data.frame(CCO, pal)
+```
+
+
+Create color layer, 1 layer per CCO; i.e.,  layers
+
+```r
+d <- shpZCTAPoly@data
+col <- matrix(NA, nrow = nrow(d), ncol = nCCO)
+c1 <- d$ZCTA5CE10[d$ZCTA5CE10 %in% lookupCCO$Zip_Code[lookupCCO$CCO == pal$CCO[1]]]
 ```
 
 
@@ -308,9 +366,9 @@ Define function to plot each CCO as a layer.
 ```r
 layerCCO <- function(x) {
     l <- lookupCCO[lookupCCO$CCO == x, "Zip_Code"]
-    c <- pal[pal$CCO == x, "pal"]
-    shpx <- subset(shpOR, ZCTA5CE10 %in% l)
-    plot(shpx, add = TRUE, col = c, border = "lightgrey")
+    c <- as.character(pal[pal$CCO == x, "pal"])
+    shpx <- subset(shpZCTAPoly, ZCTA5CE10 %in% l)
+    plot(shpx, add = TRUE, col = c, border = NA)
 }
 ```
 
@@ -318,14 +376,10 @@ layerCCO <- function(x) {
 Run the layering function, iterating through all the CCOs. The function isn't smart enough to deal with ZCTAs that have multiple CCOs assigned.
 
 ```r
-plot(shpOR, border = "lightgrey")
+plot(shpZCTALines, col = NA)
 for (i in 1:nCCO) {
     layerCCO(CCO[i])
 }
-```
-
-```
-## Error: cannot get a slot ("Polygons") from an object of type "NULL"
 ```
 
 ![plot of chunk MapOregonCCO](figure/MapOregonCCO.png) 
