@@ -1,0 +1,149 @@
+Mapping Oregon Coordinated Care Organizations (CCO)
+===================================================
+
+Background
+----------
+
+Download TIGER 2012 shapefiles [here](http://www.census.gov/geo/maps-data/data/tiger-line.html). Store the shapefiles on the CHSE server in the "`DataRepository/Shapefiles/TIGER 2012`" folder. The shapefiles will be read by the `readShapeLines` and `readShapePoly` functions from the `maptools` package.
+
+Zip Code Tabulation Areas (ZCTAs) will be mapped and color coded by CCO.
+
+Resources:
+* [Combining Spatial Data](http://cran.r-project.org/web/packages/maptools/vignettes/combine_maptools.pdf)
+* [Maps in R -- Examples](http://geography.uoregon.edu/geogr/topics/maps.htm)
+* [adding variable to shapefile](http://r-sig-geo.2731867.n2.nabble.com/adding-variable-to-shapefile-td6193408.html)
+
+Load `maptools`
+```{r LoadLibraries}
+require(maptools, quietly=TRUE)
+require(RColorBrewer, quietly=TRUE)
+require(xlsx, quietly=TRUE)
+```
+
+
+Mapping
+-------
+
+Read in the TIGER 2012 shapefiles:
+* Zip Code Tabulation Area (ZCTA) shapefile
+* County shapefile
+
+I'm not sure how the `proj4string` parameter works, but it fixes the projection.
+```{r ReadShapefiles}
+# ZCTA shapefile
+dir <- "E:/DataRepository/Shapefiles/TIGER 2012/tl_2012_us_zcta510"
+file <- paste(dir, "tl_2012_us_zcta510.shp", sep="/")
+shpZCTALines <- readShapeLines(file, proj4string=CRS("+proj=longlat"))
+shpZCTAPoly <- readShapePoly(file, proj4string=CRS("+proj=longlat"))
+# County shapefile
+dir <- "E:/DataRepository/Shapefiles/TIGER 2012/tl_2012_us_county"
+file <- paste(dir, "tl_2012_us_county.shp", sep="/")
+shpCountyLines <- readShapeLines(file, proj4string=CRS("+proj=longlat"))
+# shpCountyPoly <- readShapePoly(file, proj4string=CRS("+proj=longlat"))
+```
+
+Keep only counties in Oregon (`STATE == 41`). Oregon ZCTAs will be extracted following this.
+```{r KeepOregon}
+shpCountyLines <- subset(shpCountyLines, STATEFP == 41)
+summary(shpCountyLines)
+```
+Plot the Oregon counties.
+```{r MapOregonCounties}
+plot(shpCountyLines)
+```
+
+Since ZCTAs do not exactly correspond to geographical units, we need to read in the TIGER 2012 ZCTA relationship file that links ZCTAs to states and counties. 
+```{r ReadZCTARelFile}
+dir <- "E:/DataRepository/Shapefiles/TIGER 2012/ZCTA Relationship Files"
+file <- paste(dir, "zcta_county_rel_10.txt", sep="/")
+zctarel <- read.table(file, header=TRUE, sep=",")
+head(zctarel)
+```
+
+Create a character vector of ZCTAs and add it to the ZCTA relationship data frame. Then subset the ZCTA relationship file for Oregon (`STATE == 41` and ZCTA beginning with "97").
+```{r SubsetZCTARelFile}
+ZCTA5CHR <- sprintf("%05d", zctarel$ZCTA5)
+zctarel <- data.frame(ZCTA5CHR, zctarel)
+zctarel <- zctarel[zctarel$STATE == 41 & grepl("^97", zctarel$ZCTA5CHR),]
+head(zctarel)
+```
+
+Subset the TIGER shapefile to include only the Oregon ZCTAs.
+```{r SubsetShapefile}
+shpZCTALines <- subset(shpZCTALines, ZCTA5CE10 %in% zctarel$ZCTA5)
+summary(shpZCTALines)
+shpZCTAPoly <- subset(shpZCTAPoly, ZCTA5CE10 %in% zctarel$ZCTA5)
+summary(shpZCTAPoly)
+```
+Plot the Oregon ZCTAs. These are all the ZCTAs in Oregon that are on the TIGER 2012 shapefile. Note, there's an anomaly in southern Oregon, a ZCTA juts into California. Also, note that the entire state is not filled in; i.e., there are areas of the state that do not have a corresponding ZCTA. These "empty" areas are unpopulated areas. *For the 2010 Census, large water bodies and large unpopulated land areas do not have ZCTAs.* [ref](http://www.census.gov/geo/reference/zctas.html)
+```{r MapOregonZCTAs}
+plot(shpZCTAPoly, col="lightgrey")
+```
+
+Merge the attributes from the ZCTA relationship file to the Oregon shapefile. Some ZCTAs span across counties. So we'll exclude the attributes that are county-specific; e.g., 2010 Population of the 2010 County (`COPOP`) and Total Area of the 2010 County (`COAREA`). The record file layout can be found [here](http://www.census.gov/geo/maps-data/data/zcta_rel_layout.html).
+```{r MergeAttributes}
+d1 <- shpZCTAPoly@data
+d2 <- subset(zctarel, select=c(ZCTA5CHR, ZCTA5, STATE, ZPOP, ZHU, ZAREA, ZAREALAND))
+d <- merge(d1, d2, by.x="ZCTA5CE10", by.y="ZCTA5")
+shpZCTAPoly@data <- d
+summary(shpZCTAPoly)
+```
+
+Read in the CCO zip code data compiled by Peter Graven. The file we'll use is `Zip CCO_edit.csv`. **Need to check with Peter if this is the correct one to use.**
+```{r ReadCCOData}
+dir <- "//ohsum01.ohsu.edu/OHSU/OHSU Shared/Restricted/OCHSER/PROJECTS/EX13-04_Oregon_CO&CCOs/CCO Maps/Data"
+file <- "Zip CCO_edit.csv"
+lookupCCO <- read.csv(paste(dir, file, sep="/"))
+lookupCCO <- lookupCCO[order(lookupCCO$Zip_Code),]
+lookupCCO <- lookupCCO[grepl("^97", sprintf("%05d", lookupCCO$Zip_Code)), ]
+head(lookupCCO)
+```
+
+Fix some screwed up values.
+```{r FixlookupCCO}
+lookupCCO$CCO[lookupCCO$CCO == "Health Share of Oregon"] <- "HealthShare of Oregon"
+lookupCCO$CCO[lookupCCO$CCO == "Intercommunity"] <- "Intercommunity Health Network"
+lookupCCO$CCO[lookupCCO$CCO == "Primary Health of Josephine County"] <- "PrimaryHealth of Josephine County"
+lookupCCO$CCO <- factor(lookupCCO$CCO)
+```
+
+Get the number of CCOs and create a [Color Brewer](http://colorbrewer2.org/) palette. Since the number of CCOs exceeds the maximum number of values possible in a palette, we'll create 2 separate palettes (Set1, Set2) and concatenate them.
+```{r CreatePalette}
+nCCO <- length(table(lookupCCO$CCO))
+n <- ceiling(nCCO / 2)
+pal1 <- brewer.pal(n, "Set1")
+pal2 <- brewer.pal(n, "Set2")
+pal <- c(pal1, pal2)
+```
+
+Add 50% transparency to the palette.
+```{r AddTransparency}
+pal <- paste(pal, as.hexmode(floor(255 * 0.5)), sep="")
+```
+
+Next, assign each CCO to a palette value.
+```{r AssignPaletteValues}
+CCO <- names(table(lookupCCO$CCO))
+pal <- data.frame(CCO, pal)
+head(pal)
+```
+
+Define function to plot each CCO as a layer.
+```{r DefineLayeringFunction}
+layer <- function(x) {
+  l <- lookupCCO[lookupCCO$CCO == x, "Zip_Code"]
+  c <- as.character(pal[pal$CCO == x, "pal"])
+  shpx <- subset(shpZCTAPoly, ZCTA5CE10 %in% l)
+  plot(shpx, add=TRUE, col=c, border=NA)
+}
+```
+
+Run the layering function, iterating through all the CCOs. The function isn't smart enough to deal with ZCTAs that have multiple CCOs assigned. With the transparency added to the palette values, overlapping CCOs will have their colors overlap as well. This will create some odd colors. Also, not all ZCTAs are mapped to a CCO
+```{r MapOregonCCO, fig.keep='last', fig.height=16, fig.width=16}
+plot(shpZCTAPoly, border="lightgrey")
+for (i in 1:nCCO) {
+  layer(CCO[i])
+}
+```
+
+-----
