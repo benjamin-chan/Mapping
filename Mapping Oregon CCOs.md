@@ -25,7 +25,6 @@ require(maptools, quietly = TRUE)
 
 ```r
 require(RColorBrewer, quietly = TRUE)
-# library(classInt, quietly=TRUE)
 ```
 
 
@@ -40,10 +39,12 @@ Read in the TIGER 2012 shapefiles:
 I'm not sure how the `proj4string` parameter works, but it fixes the projection.
 
 ```r
+# ZCTA shapefile
 dir <- "E:/DataRepository/Shapefiles/TIGER 2012/tl_2012_us_zcta510"
 file <- paste(dir, "tl_2012_us_zcta510.shp", sep = "/")
 shpZCTALines <- readShapeLines(file, proj4string = CRS("+proj=longlat"))
 shpZCTAPoly <- readShapePoly(file, proj4string = CRS("+proj=longlat"))
+# County shapefile
 dir <- "E:/DataRepository/Shapefiles/TIGER 2012/tl_2012_us_county"
 file <- paste(dir, "tl_2012_us_county.shp", sep = "/")
 shpCountyLines <- readShapeLines(file, proj4string = CRS("+proj=longlat"))
@@ -104,7 +105,8 @@ summary(shpCountyLines)
 Plot the Oregon counties.
 
 ```r
-plot(shpCountyLines, col = "lightgrey")
+plot(shpCountyLines)
+title(main = "Counties of Oregon")
 ```
 
 ![plot of chunk MapOregonCounties](figure/MapOregonCounties.png) 
@@ -188,7 +190,8 @@ head(zctarel)
 Subset the TIGER shapefile to include only the Oregon ZCTAs.
 
 ```r
-shpZCTALines <- subset(shpZCTALines, ZCTA5CE10 %in% zctarel$ZCTA5)
+ZCTAOR <- zctarel$ZCTA5[!duplicated(zctarel$ZCTA5)]
+shpZCTALines <- subset(shpZCTALines, ZCTA5CE10 %in% ZCTAOR)
 summary(shpZCTALines)
 ```
 
@@ -228,7 +231,7 @@ summary(shpZCTALines)
 ```
 
 ```r
-shpZCTAPoly <- subset(shpZCTAPoly, ZCTA5CE10 %in% zctarel$ZCTA5)
+shpZCTAPoly <- subset(shpZCTAPoly, ZCTA5CE10 %in% ZCTAOR)
 summary(shpZCTAPoly)
 ```
 
@@ -267,85 +270,48 @@ summary(shpZCTAPoly)
 ##  (Other)     :411
 ```
 
-Plot the Oregon ZCTAs.
+Plot the Oregon ZCTAs. These are all the ZCTAs in Oregon that are on the TIGER 2012 shapefile. Note, there's an anomaly in southern Oregon, a ZCTA juts into California. Also, note that the entire state is not filled in; i.e., there are areas of the state that do not have a corresponding ZCTA. These "empty" areas are unpopulated areas. *For the 2010 Census, large water bodies and large unpopulated land areas do not have ZCTAs.* ([ref: census.gov](http://www.census.gov/geo/reference/zctas.html))
 
 ```r
-plot(shpZCTALines, col = "lightgrey")
+plot(shpZCTAPoly, col = "lightgrey")
+title(main = "Zip Code Tabulation Areas (ZCTAs) of Oregon")
 ```
 
 ![plot of chunk MapOregonZCTAs](figure/MapOregonZCTAs.png) 
 
 
 Merge the attributes from the ZCTA relationship file to the Oregon shapefile. Some ZCTAs span across counties. So we'll exclude the attributes that are county-specific; e.g., 2010 Population of the 2010 County (`COPOP`) and Total Area of the 2010 County (`COAREA`). The record file layout can be found [here](http://www.census.gov/geo/maps-data/data/zcta_rel_layout.html).
+**This code chunk seems to break things --- DO NOT EVALUATE**
 
 ```r
 d1 <- shpZCTAPoly@data
-d2 <- subset(zctarel, select = c(ZCTA5CHR, ZCTA5, STATE, ZPOP, ZHU, ZAREA, ZAREALAND))
+d2 <- subset(zctarel, !duplicated(ZCTA5), select = c(ZCTA5CHR, ZCTA5, STATE, 
+    ZPOP, ZHU, ZAREA, ZAREALAND))
 d <- merge(d1, d2, by.x = "ZCTA5CE10", by.y = "ZCTA5")
 shpZCTAPoly@data <- d
 summary(shpZCTAPoly)
-```
-
-```
-## Object of class SpatialPolygonsDataFrame
-## Coordinates:
-##       min     max
-## x -124.57 -116.46
-## y   41.85   46.24
-## Is projected: FALSE 
-## proj4string : [+proj=longlat]
-## Data attributes:
-##    ZCTA5CE10      GEOID10    CLASSFP10  MTFCC10    FUNCSTAT10
-##  97035  :  3   97035  :  3   B5:511    G6350:511   S:511     
-##  97056  :  3   97056  :  3                                   
-##  97132  :  3   97132  :  3                                   
-##  97140  :  3   97140  :  3                                   
-##  97231  :  3   97231  :  3                                   
-##  97324  :  3   97324  :  3                                   
-##  (Other):493   (Other):493                                   
-##     ALAND10            AWATER10              INTPTLAT10 
-##  Min.   :1.88e+04   Min.   :0.00e+00   +44.3650250:  3  
-##  1st Qu.:6.56e+07   1st Qu.:5.85e+04   +44.3762051:  3  
-##  Median :1.84e+08   Median :5.79e+05   +44.4987537:  3  
-##  Mean   :3.94e+08   Mean   :5.16e+06   +45.0771135:  3  
-##  3rd Qu.:4.22e+08   3rd Qu.:3.52e+06   +45.3242190:  3  
-##  Max.   :1.34e+10   Max.   :1.98e+08   +45.3531038:  3  
-##                                        (Other)    :493  
-##         INTPTLON10     ZCTA5CHR       STATE         ZPOP      
-##  -121.2435868:  3   97035  :  3   Min.   :41   Min.   :    0  
-##  -121.9001215:  3   97056  :  3   1st Qu.:41   1st Qu.:  722  
-##  -122.7251706:  3   97132  :  3   Median :41   Median : 2985  
-##  -122.8242089:  3   97140  :  3   Mean   :41   Mean   : 9732  
-##  -122.8659138:  3   97231  :  3   3rd Qu.:41   3rd Qu.:14074  
-##  -122.9694079:  3   97324  :  3   Max.   :41   Max.   :66954  
-##  (Other)     :493   (Other):493                               
-##       ZHU            ZAREA            ZAREALAND       
-##  Min.   :    0   Min.   :1.88e+04   Min.   :1.88e+04  
-##  1st Qu.:  413   1st Qu.:7.02e+07   1st Qu.:6.56e+07  
-##  Median : 1354   Median :1.92e+08   Median :1.84e+08  
-##  Mean   : 4247   Mean   :4.00e+08   Mean   :3.94e+08  
-##  3rd Qu.: 6494   3rd Qu.:4.24e+08   3rd Qu.:4.22e+08  
-##  Max.   :27682   Max.   :1.35e+10   Max.   :1.34e+10  
-## 
 ```
 
 
 Read in the CCO zip code data compiled by Peter Graven. The file we'll use is `Zip CCO_edit.csv`. **Need to check with Peter if this is the correct one to use.**
 
 ```r
-lookupCCO <- read.csv("//ohsum01.ohsu.edu/OHSU/OHSU Shared/Restricted/OCHSER/PROJECTS/EX13-04_Oregon_CO&CCOs/CCO Maps/Data/Zip CCO_edit.csv")
-lookupCCO <- lookupCCO[order(lookupCCO$Zip_Code), ]
+dir <- "//ohsum01.ohsu.edu/OHSU/OHSU Shared/Restricted/OCHSER/PROJECTS/EX13-04_Oregon_CO&CCOs/CCO Maps/Data"
+file <- "Zip CCO_edit.csv"
+lookupCCO <- read.csv(paste(dir, file, sep = "/"))
+lookupCCO <- lookupCCO[order(lookupCCO$CCO, lookupCCO$Zip_Code), ]
+lookupCCO <- lookupCCO[grepl("^97", sprintf("%05d", lookupCCO$Zip_Code)), ]
 head(lookupCCO)
 ```
 
 ```
-##     Zip_Code                             CCO
-## 635       68                        Trillium
-## 634       69                        Trillium
-## 636       70          Health Share of Oregon
-## 637       70                      FamilyCare
-## 620       77                  Intercommunity
-## 490    97001 PacificSource CCO, Gorge Region
+##    Zip_Code     CCO
+## 1     97406 AllCare
+## 9     97410 AllCare
+## 2     97415 AllCare
+## 10    97442 AllCare
+## 3     97444 AllCare
+## 4     97450 AllCare
 ```
 
 
@@ -370,10 +336,10 @@ pal <- c(pal1, pal2)
 ```
 
 
-Add transparency to the palette.
+Add 50% transparency to the palette.
 
 ```r
-pal <- paste(pal, as.hexmode(floor(255/2)), sep = "")
+pal <- paste(pal, as.hexmode(floor(255 * 0.5)), sep = "")
 ```
 
 
@@ -382,6 +348,17 @@ Next, assign each CCO to a palette value.
 ```r
 CCO <- names(table(lookupCCO$CCO))
 pal <- data.frame(CCO, pal)
+head(pal)
+```
+
+```
+##                       CCO       pal
+## 1                 AllCare #E41A1C7f
+## 2 Cascade Health Alliance #377EB87f
+## 3        Columbia Pacific #4DAF4A7f
+## 4          Eastern Oregon #984EA37f
+## 5              FamilyCare #FF7F007f
+## 6   HealthShare of Oregon #FFFF337f
 ```
 
 
@@ -400,17 +377,12 @@ layer <- function(x) {
 Run the layering function, iterating through all the CCOs. The function isn't smart enough to deal with ZCTAs that have multiple CCOs assigned. With the transparency added to the palette values, overlapping CCOs will have their colors overlap as well. This will create some odd colors. Also, not all ZCTAs are mapped to a CCO
 
 ```r
-plot(shpZCTALines, col = "lightgrey")
+plot(shpZCTAPoly, border = "lightgrey")
+title(main = "Oregon's Coordinated Care Organization coverage", cex.main = 2)
 for (i in 1:nCCO) {
     layer(CCO[i])
 }
 ```
 
-```
-## Error: cannot get a slot ("Polygons") from an object of type "NULL"
-```
-
 ![plot of chunk MapOregonCCO](figure/MapOregonCCO.png) 
 
-
------

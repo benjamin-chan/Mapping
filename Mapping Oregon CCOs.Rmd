@@ -17,7 +17,6 @@ Load `maptools`
 ```{r LoadLibraries}
 require(maptools, quietly=TRUE)
 require(RColorBrewer, quietly=TRUE)
-require(xlsx, quietly=TRUE)
 ```
 
 
@@ -50,6 +49,7 @@ summary(shpCountyLines)
 Plot the Oregon counties.
 ```{r MapOregonCounties}
 plot(shpCountyLines)
+title(main="Counties of Oregon")
 ```
 
 Since ZCTAs do not exactly correspond to geographical units, we need to read in the TIGER 2012 ZCTA relationship file that links ZCTAs to states and counties. 
@@ -70,20 +70,23 @@ head(zctarel)
 
 Subset the TIGER shapefile to include only the Oregon ZCTAs.
 ```{r SubsetShapefile}
-shpZCTALines <- subset(shpZCTALines, ZCTA5CE10 %in% zctarel$ZCTA5)
+ZCTAOR <- zctarel$ZCTA5[!duplicated(zctarel$ZCTA5)]
+shpZCTALines <- subset(shpZCTALines, ZCTA5CE10 %in% ZCTAOR)
 summary(shpZCTALines)
-shpZCTAPoly <- subset(shpZCTAPoly, ZCTA5CE10 %in% zctarel$ZCTA5)
+shpZCTAPoly <- subset(shpZCTAPoly, ZCTA5CE10 %in% ZCTAOR)
 summary(shpZCTAPoly)
 ```
-Plot the Oregon ZCTAs. These are all the ZCTAs in Oregon that are on the TIGER 2012 shapefile. Note, there's an anomaly in southern Oregon, a ZCTA juts into California. Also, note that the entire state is not filled in; i.e., there are areas of the state that do not have a corresponding ZCTA. These "empty" areas are unpopulated areas. *For the 2010 Census, large water bodies and large unpopulated land areas do not have ZCTAs.* [ref](http://www.census.gov/geo/reference/zctas.html)
+Plot the Oregon ZCTAs. These are all the ZCTAs in Oregon that are on the TIGER 2012 shapefile. Note, there's an anomaly in southern Oregon, a ZCTA juts into California. Also, note that the entire state is not filled in; i.e., there are areas of the state that do not have a corresponding ZCTA. These "empty" areas are unpopulated areas. *For the 2010 Census, large water bodies and large unpopulated land areas do not have ZCTAs.* ([ref: census.gov](http://www.census.gov/geo/reference/zctas.html))
 ```{r MapOregonZCTAs}
 plot(shpZCTAPoly, col="lightgrey")
+title(main="Zip Code Tabulation Areas (ZCTAs) of Oregon")
 ```
 
 Merge the attributes from the ZCTA relationship file to the Oregon shapefile. Some ZCTAs span across counties. So we'll exclude the attributes that are county-specific; e.g., 2010 Population of the 2010 County (`COPOP`) and Total Area of the 2010 County (`COAREA`). The record file layout can be found [here](http://www.census.gov/geo/maps-data/data/zcta_rel_layout.html).
-```{r MergeAttributes}
+**This code chunk seems to break things --- DO NOT EVALUATE**
+```{r MergeAttributes, eval=FALSE}
 d1 <- shpZCTAPoly@data
-d2 <- subset(zctarel, select=c(ZCTA5CHR, ZCTA5, STATE, ZPOP, ZHU, ZAREA, ZAREALAND))
+d2 <- subset(zctarel, !duplicated(ZCTA5), select=c(ZCTA5CHR, ZCTA5, STATE, ZPOP, ZHU, ZAREA, ZAREALAND))
 d <- merge(d1, d2, by.x="ZCTA5CE10", by.y="ZCTA5")
 shpZCTAPoly@data <- d
 summary(shpZCTAPoly)
@@ -94,7 +97,7 @@ Read in the CCO zip code data compiled by Peter Graven. The file we'll use is `Z
 dir <- "//ohsum01.ohsu.edu/OHSU/OHSU Shared/Restricted/OCHSER/PROJECTS/EX13-04_Oregon_CO&CCOs/CCO Maps/Data"
 file <- "Zip CCO_edit.csv"
 lookupCCO <- read.csv(paste(dir, file, sep="/"))
-lookupCCO <- lookupCCO[order(lookupCCO$Zip_Code),]
+lookupCCO <- lookupCCO[order(lookupCCO$CCO, lookupCCO$Zip_Code),]
 lookupCCO <- lookupCCO[grepl("^97", sprintf("%05d", lookupCCO$Zip_Code)), ]
 head(lookupCCO)
 ```
@@ -141,9 +144,8 @@ layer <- function(x) {
 Run the layering function, iterating through all the CCOs. The function isn't smart enough to deal with ZCTAs that have multiple CCOs assigned. With the transparency added to the palette values, overlapping CCOs will have their colors overlap as well. This will create some odd colors. Also, not all ZCTAs are mapped to a CCO
 ```{r MapOregonCCO, fig.keep='last', fig.height=16, fig.width=16}
 plot(shpZCTAPoly, border="lightgrey")
+title(main="Oregon's Coordinated Care Organization coverage", cex.main=2)
 for (i in 1:nCCO) {
   layer(CCO[i])
 }
 ```
-
------
